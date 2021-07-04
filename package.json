@@ -1,0 +1,26 @@
+{
+  "name": "youtwobe-back",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.17.1",
+    "lodash": "^4.17.21",
+    "socket.io": "^4.1.2",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/giraudgabriel/YouTwoBe-Back.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/giraudgabriel/YouTwoBe-Back/issues"
+  },
+  "homepage": "https://github.com/giraudgabriel/YouTwoBe-Back#readme"
+}
