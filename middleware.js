@@ -6,16 +6,17 @@ var rooms = {};
 //#endregion
 
 //#region Disconnect
-const onDisconnect = (id, socket) => {
-  console.log(`${id} desconectou-se`);
-  tryLeaveRoom(id);
+const onDisconnect = (userId, socket) => {
+  console.log(`${userId} desconectou-se`);
+  tryLeaveRoom(userId);
   socket.removeAllListeners();
 };
 
 const tryLeaveRoom = (userId) => {
-  Object.keys(rooms, (key) => {
-    if (rooms[key].connections.some((id) => id == userId))
-      rooms[key].connections = rooms[key].filter((id) => id == userId);
+  Object.keys(rooms).map((key) => {
+    rooms[key].connections = rooms[key].connections.filter(
+      (id) => id != userId
+    );
   });
 };
 
@@ -31,33 +32,40 @@ const onSendMessageToRoom = (socket, room, msg) => {
 const onCreateRoom = (data, userId, socket) => {
   const { name, roomName } = data;
 
-  const id = uuidv4();
+  const roomId = uuidv4();
 
   const newRoom = {
-    id,
     name: roomName,
     connections: [userId],
     url: undefined,
   };
 
   users[userId] = name;
-  rooms[id] = newRoom;
+  rooms[roomId] = newRoom;
 
-  socket.join(id);
-  onSendMessageToRoom(socket, id, `${name} entrou na sala`);
+  socket.join(roomId);
+  onSendMessageToRoom(socket, roomId, `${name} entrou na sala`);
+  const dto = getRoomDto(roomId);
+  console.log(dto);
+  socket.to(roomId).emit("roomUpdate", dto);
+  socket.emit("roomUpdate", dto);
 };
 
-const onJoinRoom = (data, id, socket) => {
+const onJoinRoom = (data, userId, socket) => {
   const { name, roomName } = data;
 
-  users[id] = name;
+  users[userId] = name;
 
   if (rooms[roomName] != null) {
-    rooms[roomName].connections.push(id);
+    rooms[roomName].connections.push(userId);
+    console.log(rooms[roomName]);
     socket.join(roomName);
     onSendMessageToRoom(socket, roomName, `${name} entrou na sala`);
+    const dto = getRoomDto(roomName);
+    socket.to(roomName).emit("roomUpdate", dto);
+    socket.emit("roomUpdate", dto);
   } else {
-    onCreateRoom(data, id, socket);
+    onCreateRoom(data, userId, socket);
   }
 };
 
@@ -75,6 +83,20 @@ const onPauseVideo = (data, userId, socket) => {
   const { roomId } = data;
   const username = users[userId];
   socket.to(roomId).emit("pauseVideo", username);
+};
+
+//#endregion
+
+//#region Utils
+
+const getRoomDto = (roomId) => {
+  const room = rooms[roomId];
+  return {
+    id: roomId,
+    usersCount: room.connections.length,
+    url: room.url,
+    name: room.name,
+  };
 };
 
 //#endregion
