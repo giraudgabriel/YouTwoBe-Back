@@ -8,23 +8,36 @@ var rooms = {};
 //#region Disconnect
 const onDisconnect = (userId, socket) => {
   console.log(`${userId} desconectou-se`);
-  tryLeaveRoom(userId);
+  tryLeaveRoom(userId, socket);
   socket.removeAllListeners();
 };
 
-const tryLeaveRoom = (userId) => {
+const tryLeaveRoom = (userId, socket) => {
   Object.keys(rooms).map((key) => {
-    rooms[key].connections = rooms[key].connections.filter(
-      (id) => id != userId
-    );
+    if (rooms[key].connections.some((id) => id == userId)) {
+      rooms[key].connections = rooms[key].connections.filter(
+        (id) => id != userId
+      );
+      const dto = getRoomDto(key);
+      socket.to(key).emit("roomUpdate", dto);
+    }
   });
 };
 
 //#endregion
 
 //#region Chat
-const onSendMessageToRoom = (socket, room, msg) => {
-  socket.to(room).emit("msg", msg);
+const onSendMessageToRoom = ({ userId, socket, text, room }) => {
+  const username = users[userId];
+
+  const newMessage = {
+    text,
+    userId,
+    username,
+  };
+
+  socket.to(room).emit("msg", newMessage);
+  socket.emit("msg", newMessage);
 };
 //#endregion
 
@@ -44,9 +57,13 @@ const onCreateRoom = (data, userId, socket) => {
   rooms[roomId] = newRoom;
 
   socket.join(roomId);
-  onSendMessageToRoom(socket, roomId, `${name} entrou na sala`);
+  onSendMessageToRoom({
+    userId,
+    socket,
+    room: roomId,
+    text: `${name} entrou na sala`,
+  });
   const dto = getRoomDto(roomId);
-  console.log(dto);
   socket.to(roomId).emit("roomUpdate", dto);
   socket.emit("roomUpdate", dto);
 };
@@ -57,10 +74,15 @@ const onJoinRoom = (data, userId, socket) => {
   users[userId] = name;
 
   if (rooms[roomName] != null) {
+    if (rooms[roomName].connections.some((id) => id == userId)) return;
     rooms[roomName].connections.push(userId);
-    console.log(rooms[roomName]);
     socket.join(roomName);
-    onSendMessageToRoom(socket, roomName, `${name} entrou na sala`);
+    onSendMessageToRoom({
+      socket,
+      userId,
+      room: roomName,
+      text: `${name} entrou na sala`,
+    });
     const dto = getRoomDto(roomName);
     socket.to(roomName).emit("roomUpdate", dto);
     socket.emit("roomUpdate", dto);
@@ -103,13 +125,17 @@ const getRoomDto = (roomId) => {
 
 //#region Connect
 const onConnect = (socket) => {
-  const { id } = socket.client.conn;
+  // const { id } = socket.client.conn;
+  const { id } = socket;
   console.log(`${id} conectou-se ao socket`);
   socket.on("disconnect", () => onDisconnect(id, socket));
   socket.on("joinRoom", (data) => onJoinRoom(data, id, socket));
   socket.on("createRoom", (data) => onCreateRoom(data, id, socket));
   socket.on("playVideo", (data) => onPlayVideo(data, id, socket));
   socket.on("pauseVideo", (data) => onPauseVideo(data, id, socket));
+  socket.on("sendMessage", (data) =>
+    onSendMessageToRoom({ userId: id, socket, ...data })
+  );
 };
 
 //#endregion
